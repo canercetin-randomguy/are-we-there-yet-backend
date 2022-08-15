@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -75,7 +76,7 @@ type PoECurrency struct {
 	} `json:"language"`
 }
 
-func Fetch(db *pgx.Conn, schema string, table string) (bool, bool) {
+func Fetch(db *pgx.Conn, schema string, table string, logFile *os.File) (bool, bool) {
 	var CurrencyResponse PoECurrency
 	var mirrorValue float64
 	var exaltValue float64
@@ -189,17 +190,20 @@ func bomb(client *reddit.Client, db *pgx.Conn, servicename string) {
 		}
 	}
 }
-func FetchOpteds(client *reddit.Client, schema string, table string, db *pgx.Conn) {
+func FetchOpteds(client *reddit.Client, schema string, table string, db *pgx.Conn, logFile *os.File) {
 	_, messages, resp, err := client.Message.InboxUnread(context.Background(), &reddit.ListOptions{Limit: 50})
 	if err != nil || resp.StatusCode != 200 {
 		panic(err)
 	}
 	for _, message := range messages {
+		log.New(logFile, "", log.LstdFlags).Println(time.Now(), "Reading message from> ", message.Author, "Subject> ", message.Subject)
 		if message.Subject != "" {
 			AddData(db, message.Author, schema, table, "usernames")
 			// Remove ! from message.Text
 			message.Subject = message.Subject[1:]
 			UpdateData(db, schema, table, message.Subject, "optedservice", "usernames", message.Author)
+		} else {
+			log.New(logFile, "", log.LstdFlags).Println("Subject of the message from> ", message.Author, " was blank. Sad. ", time.Now())
 		}
 		response, err := client.Message.Read(context.Background(), message.FullID)
 		if err != nil || response.StatusCode != 200 {
@@ -210,6 +214,7 @@ func FetchOpteds(client *reddit.Client, schema string, table string, db *pgx.Con
 func main() {
 	// Create reddit client.
 	var botid, botsecret, botusername, botpassword, serverpassword, serverhost, serverport, serverusername = FetchCredentials()
+	var logFile, _ = os.Create("log.txt")
 	var redditClient, _ = reddit.NewClient(reddit.Credentials{ID: botsecret, Secret: botid, Username: botusername, Password: botpassword})
 	var options = "&options=--cluster%3Dpool-gorgon-2847"
 	var schema = "optedusers"
@@ -238,24 +243,28 @@ func main() {
 	for {
 		select {
 		case <-threemintimer.C:
-			FetchOpteds(redditClient, schema, table, conn)
+			timeNow := time.Now()
+			log.New(logFile, "", log.LstdFlags).Println("Fetching opted in users in unread messages> ", timeNow)
+			FetchOpteds(redditClient, schema, table, conn, logFile)
 			threemintimer.Reset(time.Minute * 3)
 		case <-onemintimer.C:
-			fmt.Println("Fetching poe.ninja...")
-			exaltBool, mirrorBool := Fetch(conn, currencyschema, currencytable)
+			timeNow := time.Now()
+			log.New(logFile, "", log.LstdFlags).Println(timeNow, "Fetching PoE.ninja> ")
+			exaltBool, mirrorBool := Fetch(conn, currencyschema, currencytable, logFile)
 			onemintimer.Reset(time.Minute * 1)
 			fmt.Println("Done!")
-			if exaltBool {
-				fmt.Println("Bombing opted in users...")
+			if exaltBool { // Do nothing for now.
+				// timeNow := time.Now()
+				// log.New(logFile, "", log.LstdFlags).Println(timeNow, "Bombing opted in users for Divine>Exalted > ")
 				// exaltedhigher / Divine Orb is higher than Exalted Orb.
 				//	mirrorhigher / Divine Orb is higher than Mirror OF Kalandra
-				bomb(redditClient, conn, "exaltedhigher")
-				fmt.Println("Done!")
+				// bomb(redditClient, conn, "exaltedhigher")
+				// fmt.Println("Done!")
 			}
-			if mirrorBool {
-				fmt.Println("Bombing opted in users...")
-				bomb(redditClient, conn, "mirrorhigher")
-				fmt.Println("Done!")
+			if mirrorBool { // Do nothing again.
+				// log.New(logFile, "", log.LstdFlags).Println(timeNow, "Bombing opted in users for Divine>Mirror > ")
+				// bomb(redditClient, conn, "mirrorhigher")
+				// fmt.Println("Done!")
 			}
 		}
 	}
