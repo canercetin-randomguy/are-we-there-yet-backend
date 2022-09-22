@@ -233,11 +233,6 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to connect database", err)
 	}
-	// Main loop of the program:
-	// Select case is fired with timer every 3 minutes to not fuck with Reddit API.
-	// Maximum of 50 unread messages are fetched and processed.
-	// poe.ninja is pinged every 1 minutes, I hope they dont get angry at me.
-	// Divine>exalt is checked in every fetch, if it is higher... bomb the opted in users messagebox!
 	threemintimer := time.NewTimer(time.Minute * 3)
 	onemintimer := time.NewTimer(time.Minute * 1)
 	for {
@@ -254,17 +249,8 @@ func main() {
 			onemintimer.Reset(time.Minute * 1)
 			fmt.Println("Done!")
 			if exaltBool { // Do nothing for now.
-				// timeNow := time.Now()
-				// log.New(logFile, "", log.LstdFlags).Println(timeNow, "Bombing opted in users for Divine>Exalted > ")
-				// exaltedhigher / Divine Orb is higher than Exalted Orb.
-				//	mirrorhigher / Divine Orb is higher than Mirror OF Kalandra
-				// bomb(redditClient, conn, "exaltedhigher")
-				// fmt.Println("Done!")
 			}
 			if mirrorBool { // Do nothing again.
-				// log.New(logFile, "", log.LstdFlags).Println(timeNow, "Bombing opted in users for Divine>Mirror > ")
-				// bomb(redditClient, conn, "mirrorhigher")
-				// fmt.Println("Done!")
 			}
 		}
 	}
